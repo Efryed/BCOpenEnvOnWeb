@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { BuildALProject } from './compiler-helper/compilerHelper';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -13,6 +14,23 @@ export function activate(context: vscode.ExtensionContext) {
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
+	const disposable1 = vscode.commands.registerCommand('bcopenenvonweb.buildALProject', () => {
+		console.log('Build AL Project command executed');
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		if (!workspaceFolders) {
+			vscode.window.showErrorMessage('No workspace folder is open.');
+			return;
+		}
+		const projectPath = workspaceFolders[0].uri.fsPath;
+		const success = BuildALProject(projectPath);
+		if (success) {
+			vscode.window.showInformationMessage('AL Project built successfully.');
+		} else {
+			vscode.window.showErrorMessage('Failed to build AL Project.');
+		}
+	});
+
+
 	const disposable = vscode.commands.registerCommand('bcopenenvonweb.openEnvOnWeb', () => {
 		// The code you place here will be executed every time your command is executed
 		// Display a message box to the user
@@ -75,7 +93,7 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	});
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(disposable,disposable1);
 }
 
 // This method is called when your extension is deactivated

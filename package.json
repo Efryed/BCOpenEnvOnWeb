@@ -35,6 +35,10 @@
       {
         "command": "bcopenenvonweb.openEnvOnWeb",
         "title": "BCOpenEnvOnWeb: Open Environment on Web"
+      },
+      {
+        "command": "bcopenenvonweb.buildALProject",
+        "title": "BCOpenEnvOnWeb: Build AL Project"
       }
     ]
   },
