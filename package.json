@@ -1,7 +1,7 @@
 {
-  "name": "bcopenenvonweb",
-  "displayName": "BCOpenEnvOnWeb",
-  "description": "Abre de manera sencilla un entorno de BC en el navegador configurado en el launch.js",
+  "name": "fjre-alsimpletools",
+  "displayName": "FJRE AL Simple Tools",
+  "description": "A set of simple tools for AL development in Business Central.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.107.0"
@@ -15,17 +15,17 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "bcopenenvonweb-toolsContainer",
-          "title": "BC Env On Web",
+          "id": "fjre-alsimpletools_toolsContainer",
+          "title": "FJRE AL Simple Tools",
           "icon": "./src/images/icon.svg"
         }
       ]
     },
     "views": {
-      "bcopenenvonweb-toolsContainer": [
+      "efryedal_simpletools_toolsContainer": [
         {
-          "id": "bcopenenvonweb-EnvViewContainer",
-          "name": "BC Environments",
+          "id": "fjre-alsimpletools-EnvViewContainer",
+          "name": "FJRE AL Environments",
           "icon": "./src/images/icon.svg",
           "contextualTitle": "Package Explorer"
         }
@@ -33,12 +33,12 @@
     },
     "commands": [
       {
-        "command": "bcopenenvonweb.openEnvOnWeb",
-        "title": "BCOpenEnvOnWeb: Open Environment on Web"
+        "command": "fjre-alsimpletools.openEnvOnWeb",
+        "title": "FJRE AL Simple Tools: Open Environment on Web"
       },
       {
-        "command": "bcopenenvonweb.buildALProject",
-        "title": "BCOpenEnvOnWeb: Build AL Project"
+        "command": "fjre-alsimpletools.buildALProject",
+        "title": "FJRE AL Simple Tools: Build AL Project"
       }
     ]
   },

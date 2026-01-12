@@ -7,9 +7,11 @@ import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
 import { GetEnabledanalyzerPaths } from './getAnalizer';
+import * as customTypes from './customTypes';
 import { error } from 'console';
+import { GetSolutionInfoObject, modifyVersionInFile, UpdateVersion, ValidaThatAppFileWithVersionExists } from './updateVersion';
 
-export function getAlExtensionPath(): string | null {
+function getAlExtensionPath(): string | null {
     const extensionsPath = path.join(os.homedir(), '.vscode', 'extensions');
     if (!fs.existsSync(extensionsPath)) {
         return null;
@@ -30,7 +32,7 @@ export function getAlExtensionPath(): string | null {
     return fs.existsSync(alcPath) ? alcPath : null;
 }
 
-function GetAnalyzerParam(projectPath: string, alExtensionPath: string): string {
+function GetAnalyzerParam(projectPath: string, alExtensionPath: string): string | null{
     const analyzerPaths = GetEnabledanalyzerPaths(projectPath, alExtensionPath);
     if (analyzerPaths.length > 0) {
         console.log("Enabled analyzers:");
@@ -38,7 +40,7 @@ function GetAnalyzerParam(projectPath: string, alExtensionPath: string): string 
         return `/analyzer:"${analyzerPaths.join(',')}"`;
     }
     console.log("No analyzers enabled.");
-    return "";
+    return null;
 }
 
 
@@ -60,30 +62,27 @@ function VerifyDirectory(dirPath: string, createIfNotExist: boolean): boolean {
 }
 
 function RunAlcShowOutput(
-    alcPath: string, 
-    projectPath: string, 
-    outputPath: string, 
-    symbolsPath: string, 
-    analizerParam: string,
+    projectParams: customTypes.BuildALProjectParams,
     OutputChannel:vscode.OutputChannel, 
     susccessCallback: () => void, 
     errorCallback: (error: string) => void
 ) {
 
     const params = [
-        `/project:"${projectPath}"`,
-        `/packagecachepath:"${symbolsPath}"`,
-        `/out:"${outputPath}"`
+        `/project:"${projectParams.projectPath}"`,
+        `/packagecachepath:"${projectParams.symbolsPath}"`,
+        `/out:"${projectParams.outputPath}"`
     ]
 
-    if (analizerParam) {
-        params.push(analizerParam);
+    if (projectParams.analizerParam) {
+        params.push(projectParams.analizerParam);
     }
+
     OutputChannel.show(true);
     OutputChannel.appendLine(`Running alc.exe with parameters:`);
     params.forEach(p => OutputChannel.appendLine(p));
 
-    const alcProcess = spawn(alcPath, params);
+    const alcProcess = spawn(projectParams.alcPath, params);
 
     alcProcess.stdout.on('data', (data) => {
         // console.log(`alc.exe: ${data}`);
@@ -126,7 +125,13 @@ function CompareVersions(versionA: string, versionB: string): number {
 }
 
 
-export function BuildALProject(projectPath: string, OutputChannel:any ,susccessCallback: () => void, errorCallback: (error: string) => void) {
+export function BuildALProject(
+    projectPath: string,
+    customVersion: string | null,
+    OutputChannel:any ,
+    susccessCallback: () => void,
+    errorCallback: (error: string) => void
+) {
     const symbolsPath = path.join(projectPath, '.alpackages');
     const outputPath = path.join(projectPath, 'out');
     if (!VerifyDirectory(symbolsPath, false)) {
@@ -137,7 +142,32 @@ export function BuildALProject(projectPath: string, OutputChannel:any ,susccessC
         errorCallback(`Failed to create output directory: ${outputPath}`);
         return;
     }
-    const outputPathApp = path.join(outputPath, path.basename(projectPath, '.alproj') + '.app');
+
+    const SolutionInfo = GetSolutionInfoObject(projectPath);
+    if (!SolutionInfo) {
+        errorCallback(`Failed to read solution info from app.json in project path: ${projectPath}`);
+        return;
+    }
+
+    // publisher_name_version_PTE.app
+    if (customVersion) {
+
+        if (!modifyVersionInFile(path.join(projectPath, 'app.json'), customVersion))
+        {
+            errorCallback(`Failed to modify version in app.json to ${customVersion}`);
+            return;
+        }
+
+        SolutionInfo.version = customVersion;
+    }
+
+    if (ValidaThatAppFileWithVersionExists(outputPath, SolutionInfo.version)) {
+        errorCallback(`App file with version ${SolutionInfo.version} already exists in output path: ${outputPath}`);
+        return;
+    }
+    
+    const appName = `${SolutionInfo.publisher}_${SolutionInfo.name}_${SolutionInfo.version}_PTE.app`;
+    const outputPathApp = path.join(outputPath, appName);
 
     const alExtPath = getAlExtensionPath();
     if (!alExtPath) {
@@ -151,5 +181,13 @@ export function BuildALProject(projectPath: string, OutputChannel:any ,susccessC
     }
     const analizerParam = GetAnalyzerParam(projectPath, alExtPath);
 
-    RunAlcShowOutput(alcPath, projectPath, outputPathApp, symbolsPath, analizerParam,OutputChannel, susccessCallback, errorCallback);
+    const ProjectParams: customTypes.BuildALProjectParams = {
+        alcPath: alcPath,
+        projectPath: projectPath,
+        outputPath: outputPathApp,
+        symbolsPath: symbolsPath,
+        analizerParam: analizerParam,
+    };
+
+    RunAlcShowOutput(ProjectParams,OutputChannel, susccessCallback, errorCallback);
 }
