@@ -7,6 +7,9 @@ import { BuildALProject } from './compiler-helper/compilerHelper';
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
+	const OutputChannel = vscode.window.createOutputChannel("BCOpenEnvOnWeb");
+
+
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "bcopenenvonweb" is now active!');
@@ -22,12 +25,16 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 		const projectPath = workspaceFolders[0].uri.fsPath;
-		const success = BuildALProject(projectPath);
-		if (success) {
+		const success = BuildALProject(projectPath,OutputChannel, () => {
+			// on success
+			OutputChannel.appendLine('AL Project built successfully.');
 			vscode.window.showInformationMessage('AL Project built successfully.');
-		} else {
-			vscode.window.showErrorMessage('Failed to build AL Project.');
-		}
+		}, (error) => {
+			// on error
+			OutputChannel.appendLine('Failed to build AL Project: ' + error);
+			vscode.window.showErrorMessage('Failed to build AL Project: ' + error);
+		});
+		
 	});
 
 

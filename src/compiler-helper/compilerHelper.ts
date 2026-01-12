@@ -1,11 +1,13 @@
 // Write a function that get this file
 // C:\Users\rojas\.vscode\extensions\ms-dynamics-smb.al-15.2.16304953\bin\alc.exe
 // ms-dynamics-smb.al-15.2.16304953 can change, get that highest version installed
+import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
 import { GetEnabledanalyzerPaths } from './getAnalizer';
+import { error } from 'console';
 
 export function getAlExtensionPath(): string | null {
     const extensionsPath = path.join(os.homedir(), '.vscode', 'extensions');
@@ -57,32 +59,50 @@ function VerifyDirectory(dirPath: string, createIfNotExist: boolean): boolean {
     return false;
 }
 
-export function RunAlcShowOutput(alcPath: string, projectPath: string, outputPath: string, symbolsPath: string, analizerParam: string) {
+function RunAlcShowOutput(
+    alcPath: string, 
+    projectPath: string, 
+    outputPath: string, 
+    symbolsPath: string, 
+    analizerParam: string,
+    OutputChannel:vscode.OutputChannel, 
+    susccessCallback: () => void, 
+    errorCallback: (error: string) => void
+) {
 
-    const alcProcess = spawn(alcPath, [
+    const params = [
         `/project:"${projectPath}"`,
         `/packagecachepath:"${symbolsPath}"`,
-        `/out:"${outputPath}"`,
-        analizerParam
-    ]);
+        `/out:"${outputPath}"`
+    ]
 
-    alcProcess.stdout.pipe(process.stdout);
-    alcProcess.stderr.pipe(process.stderr);
+    if (analizerParam) {
+        params.push(analizerParam);
+    }
+    OutputChannel.show(true);
+    OutputChannel.appendLine(`Running alc.exe with parameters:`);
+    params.forEach(p => OutputChannel.appendLine(p));
 
-    const exitCode = new Promise((resolve, reject) => {
-        alcProcess.on('close', (code) => {
-            if (code === 0) {
-                resolve(code);
-            } else {
-                reject(new Error(`alc.exe exited with code ${code}`));
-            }
-        });
-        alcProcess.on('error', (err) => {
-            reject(err);
-        });
+    const alcProcess = spawn(alcPath, params);
+
+    alcProcess.stdout.on('data', (data) => {
+        // console.log(`alc.exe: ${data}`);
+        OutputChannel.append(data.toString());
     });
 
-    return exitCode;
+    alcProcess.stderr.on('data', (data) => {
+        // console.error(`alc.exe error: ${data}`);
+        OutputChannel.append(data.toString());
+    });
+
+    alcProcess.on('close', (code) => {
+        if (code === 0) {
+            susccessCallback();
+        }   else {  
+            errorCallback(`alc.exe exited with code ${code}`);
+        }
+    });
+
 }
 
 
@@ -106,43 +126,30 @@ function CompareVersions(versionA: string, versionB: string): number {
 }
 
 
-export function BuildALProject(projectPath: string): boolean {
+export function BuildALProject(projectPath: string, OutputChannel:any ,susccessCallback: () => void, errorCallback: (error: string) => void) {
     const symbolsPath = path.join(projectPath, '.alpackages');
     const outputPath = path.join(projectPath, 'out');
     if (!VerifyDirectory(symbolsPath, false)) {
-        console.error("Symbols directory does not exist and could not be created.");
-        return false;
+        errorCallback(`Symbols directory does not exist: ${symbolsPath}`);
+        return;
     }
     if (!VerifyDirectory(outputPath, true)) {
-        console.error("Output directory does not exist and could not be created.");
-        return false;
+        errorCallback(`Failed to create output directory: ${outputPath}`);
+        return;
     }
     const outputPathApp = path.join(outputPath, path.basename(projectPath, '.alproj') + '.app');
 
     const alExtPath = getAlExtensionPath();
     if (!alExtPath) {
-        console.error("AL Extension not found.");
-        return false;
+        error("AL Extension for VSCode not found.");
+        return;
     }
     const alcPath = path.join(alExtPath, 'bin', 'win32', 'alc.exe');
     if (!alcPath) {
-        console.error("AL Compiler (alc.exe) not found.");
-        return false;
+        error("alc.exe not found in AL Extension.");
+        return;
     }
     const analizerParam = GetAnalyzerParam(projectPath, alExtPath);
 
-    // Todo: Fix error handling, currently errors are not caught properly
-    try {
-        RunAlcShowOutput(alcPath, projectPath, outputPathApp, symbolsPath, analizerParam)
-            .then(() => {
-                console.log("AL project built successfully.");
-            })
-            .catch((error) => {
-                console.error("Error building AL project:", error);
-            });
-        return true;
-    } catch (error) {
-        console.error("Unexpected error:", error);
-        return false;
-    }
+    RunAlcShowOutput(alcPath, projectPath, outputPathApp, symbolsPath, analizerParam,OutputChannel, susccessCallback, errorCallback);
 }
